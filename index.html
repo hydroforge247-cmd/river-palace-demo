@@ -277,7 +277,7 @@ input:focus,select:focus,textarea:focus{outline:0;border-color:var(--teal);box-s
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 @media (max-width:400px){.row2{grid-template-columns:1fr}}
 .fine{font-size:13.5px;color:var(--muted)}
-@media (max-width:860px){.venues{grid-template-columns:1fr 1fr;gap:10px}.venue{padding:16px}.venue b{font-size:16px}.fn-grid{grid-template-columns:1fr}.fn-photos{min-height:300px}}
+@media (max-width:860px){.fn-grid{grid-template-columns:1fr}.fn-photos{min-height:300px}}
 
 /* visit */
 .visit-grid{display:grid;grid-template-columns:1fr 1.2fr;gap:28px}
@@ -319,9 +319,74 @@ dialog h3{font-size:32px}
 .rv{opacity:0;transform:translateY(22px);transition:opacity 1s var(--ease),transform 1s var(--ease)}
 .rv.in{opacity:1;transform:none}
 @media (prefers-reduced-motion:reduce){.rv{transform:none;transition:opacity .6s}.hero .ph{animation:none;transform:none}html{scroll-behavior:auto}.bar:before,.bar:after{animation:none}}
+/* 26 Nov (user): venues stack like a deck as you scroll (the "menu overlay", same as PNB): each card slides up over the last */
+.venues{grid-template-columns:1fr;gap:18px;max-width:760px;counter-reset:vn}
+.venue{position:sticky;top:calc(84px + var(--i) * 12px);padding:24px 26px;border-radius:24px;border-top:3px solid var(--red);box-shadow:0 -14px 40px -24px rgba(0,0,0,.35),0 22px 50px -30px rgba(15,76,92,.5),inset 0 0 0 1px var(--line)}
+.venue:nth-child(even){background:var(--bg-2)}
+.venue:hover{transform:none}
+.venue b{font-family:var(--f-head);font-weight:400;font-size:26px;line-height:1.15;margin-bottom:4px}
+.venue b:before{counter-increment:vn;content:"0" counter(vn);display:block;margin-bottom:8px;font-size:22px;color:var(--red)}
+[data-theme=night] .venue b:before{color:var(--price)}
+.venue:nth-child(1){--i:0}.venue:nth-child(2){--i:1}.venue:nth-child(3){--i:2}.venue:nth-child(4){--i:3}.venue:nth-child(5){--i:4}.venue:nth-child(6){--i:5}.venue:nth-child(7){--i:6}
+@media (max-width:860px){.venue{top:calc(74px + var(--i) * 10px);padding:20px 22px}.venue b{font-size:23px}}
+/* no blue tap box on phones; keyboard users still get a focus ring */
+*{-webkit-tap-highlight-color:transparent}
+button:focus:not(:focus-visible),a:focus:not(:focus-visible){outline:0}
+/* theme bubble for browsers without view transitions: the new colour grows from the switch, then the page swaps under it */
+.tbubble{position:fixed;inset:0;z-index:9998;pointer-events:none;transition:opacity .35s}
 </style>
 </head>
 <body>
+<!-- loader (26 Nov, standard on every site): logo on gentle water rings, a river line fills as every photo, the hero water and the game backdrops arrive; never longer than 12 s -->
+<style>
+.rpl{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;align-content:center;gap:34px;background:var(--bg);transition:opacity .7s var(--ease),visibility .7s}
+.rpl.out{opacity:0;visibility:hidden}
+.rpl__logo{position:relative;width:150px;height:150px;display:grid;place-items:center}
+.rpl__logo img{position:relative;z-index:1;width:150px;height:150px;object-fit:contain;border-radius:28px;animation:rpl-bob 3.2s ease-in-out infinite}
+.rpl__logo .d{background:#fff;padding:12px;box-shadow:0 24px 50px -24px rgba(15,76,92,.55)}
+.rpl__logo .n{display:none}
+[data-theme=night] .rpl__logo .d{display:none}
+[data-theme=night] .rpl__logo .n{display:block}
+.rpl__logo i{position:absolute;left:50%;top:72%;width:150px;height:44px;margin:-22px 0 0 -75px;border-radius:50%;border:2px solid rgba(var(--ripple),.35);opacity:0;animation:rpl-ring 3s ease-out infinite}
+.rpl__logo i:nth-of-type(2){animation-delay:1s}.rpl__logo i:nth-of-type(3){animation-delay:2s}
+@keyframes rpl-ring{0%{opacity:.9;transform:scale(.55)}100%{opacity:0;transform:scale(2.1)}}
+@keyframes rpl-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.rpl__river{position:relative;width:min(240px,64vw);height:8px;border-radius:99px;background:rgba(var(--ripple),.14);overflow:hidden}
+.rpl__river span{position:absolute;inset:0 auto 0 0;width:4%;border-radius:inherit;transition:width .4s var(--ease);
+  background:repeating-linear-gradient(110deg,var(--teal) 0 10px,var(--accent) 10px 20px);background-size:200% 100%;animation:rpl-flow 1.2s linear infinite}
+@keyframes rpl-flow{to{background-position:-40px 0}}
+.rpl__t{margin:-14px 0 0;font:500 15px/1.3 var(--f-body);color:var(--muted);letter-spacing:.02em}
+@media (prefers-reduced-motion:reduce){.rpl__logo img,.rpl__logo i,.rpl__river span{animation:none}}
+</style>
+<div class="rpl" id="rpl" role="status" aria-live="polite">
+  <div class="rpl__logo"><i></i><i></i><i></i><img class="d" src="img/logo-day.webp" alt="The River Palace"><img class="n" src="img/logo-night.webp" alt="The River Palace"></div>
+  <div class="rpl__river" aria-hidden="true"><span id="rplBar"></span></div>
+  <p class="rpl__t" id="rplT">Getting the river ready…</p>
+</div>
+<script>
+(() => {
+  const el = document.getElementById("rpl"), bar = document.getElementById("rplBar"), txt = document.getElementById("rplT"), t0 = Date.now();
+  document.documentElement.style.overflow = "hidden";   // no scrolling behind the loader
+  let total = 2, got = 0, done = false;                   // 2 = fonts + hero water
+  const tick = () => { got++; bar.style.width = Math.min(100, 4 + got / total * 96) + "%"; if (got >= total) finish(); };
+  function finish() {
+    if (done) return; done = true; bar.style.width = "100%"; txt.textContent = "Welcome to the river.";
+    setTimeout(() => { document.documentElement.style.overflow = ""; el.classList.add("out"); setTimeout(() => el.remove(), 800); }, Math.max(300, 1200 - (Date.now() - t0)));
+  }
+  addEventListener("DOMContentLoaded", () => {
+    // every photo on the page, the lazy ones too, plus the skip game's river backdrops
+    const imgs = [...document.images].filter(i => !el.contains(i));
+    imgs.forEach(i => { i.loading = "eager"; });
+    const extra = ["img/bank-day.webp", "img/bank-night.webp"].map(src => { const i = new Image(); i.src = src; return i; });
+    const all = imgs.concat(extra); total += all.length;
+    all.forEach(i => (i.complete ? tick() : (i.addEventListener("load", tick, { once: true }), i.addEventListener("error", tick, { once: true }))));
+    (document.fonts ? document.fonts.ready : Promise.resolve()).then(tick);
+    if (window.heroReady) tick(); else addEventListener("heroready", tick, { once: true });
+  });
+  setTimeout(finish, 12000);   // slow mobile data: never hold people out longer than this
+})();
+</script>
+
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <symbol id="wa" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Zm0 18.2a8.2 8.2 0 0 1-4.2-1.1l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2Zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.3-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2-.1-.1-.3-.2-.5-.3Z"/></symbol>
@@ -569,7 +634,14 @@ paintMeta();
 mode.onclick = e => {
   const next = root.dataset.theme === "night" ? "day" : "night";
   const apply = () => { root.dataset.theme = next; paintMeta(); try { localStorage.setItem("rp-theme", next); } catch (x) {} window.dispatchEvent(new Event("themechange")); };
-  if (!document.startViewTransition) return apply();
+  if (!document.startViewTransition) {   // older phone browsers: draw the bubble ourselves
+    if (calm.matches) return apply();
+    const bx = e.clientX || innerWidth - 120, by = e.clientY || 38, br = Math.hypot(Math.max(bx, innerWidth - bx), Math.max(by, innerHeight - by));
+    const b = document.createElement("div"); b.className = "tbubble"; b.style.background = next === "night" ? "#0a1822" : "#fbf6ec";
+    document.body.append(b);
+    b.animate({ clipPath: [`circle(0px at ${bx}px ${by}px)`, `circle(${br}px at ${bx}px ${by}px)`] }, { duration: 650, easing: "cubic-bezier(.65,0,.25,1)" }).finished.then(() => { apply(); requestAnimationFrame(() => { b.style.opacity = 0; setTimeout(() => b.remove(), 400); }); });
+    return;
+  }
   const x = e.clientX || innerWidth - 120, y = e.clientY || 38, r = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
   const vt = document.startViewTransition(apply);
   vt.ready.then(() => root.animate(

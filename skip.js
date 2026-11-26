@@ -13,7 +13,7 @@
   const ROUNDS = [
     [{ side: -1, fx: 0.24, z: 8 }, { side: 1, fx: 0.26, z: 12 }],
     [{ side: 1, fx: 0.16, z: 17 }, { side: -1, fx: 0.26, z: 21 }, { side: 1, fx: 0.28, z: 26 }],
-    [{ side: -1, fx: 0.14, z: 34 }, { side: 1, fx: 0.24, z: 44 }, { side: -1, fx: 0.27, z: 56 }],   // eased 26 Nov: round 2 was too hard on a phone
+    [{ side: -1, fx: 0.14, z: 30 }, { side: 1, fx: 0.22, z: 37 }, { side: -1, fx: 0.25, z: 45 }],   // eased again 26 Nov: round 3 was out of reach on a phone
   ];
   const BUOYS = ROUNDS.flatMap((r, ri) => r.map((b, k) => ({ ...b, round: ri, n: k + 1 })));
   const sideName = b => (b.side < 0 ? "left" : "right");
@@ -96,7 +96,7 @@
     pts = [];
     if (vyp > -60 || Math.hypot(vxp, vyp) < 400) { hint.textContent = "Flick towards the buoy"; hint.style.opacity = 1; return; }
     // how hard you flick decides how far it goes: a soft flick plops in close, a hard one reaches the far buoys
-    const power = Math.min(6, Math.hypot(vxp, vyp) / Math.max(H, 640)),   // same feel on a small phone as on a laptop
+    const power = Math.min(6, Math.hypot(vxp, vyp) / (Math.max(H, 640) * 0.55)),   // a hard phone flick (~2000 px/s) now reaches full power   // same feel on a small phone as on a laptop
       aim = Math.max(-3, Math.min(3, vxp / -vyp));
     S.q = Math.max(0, 1 - Math.max(0, Math.abs(aim) - 2.2) * 1.2);   // aiming at a buoy is fine; only an almost-sideways swipe loses skips
     S.vz = Math.max(3, Math.min(36, power * 8.5)); S.vx = S.vz * aim * 0.15; S.vy = 1.6 + (1 - S.q) * 1.2;
@@ -131,7 +131,7 @@
     }
     for (let i = rip.length - 1; i >= 0; i--) { rip[i].t += dt / 2.6; if (rip[i].t >= 1) rip.splice(i, 1); }
     for (let i = drops.length - 1; i >= 0; i--) { const d = drops[i]; d.vy -= 9.8 * dt; d.x += d.vx * dt; d.y += d.vy * dt; d.z += d.vz * dt; if (d.y < 0) drops.splice(i, 1); }
-    if (Math.random() < dt * 0.35) ripple((Math.random() - .5) * 30, 15 + Math.random() * 80, 0.35);
+    if (Math.random() < dt * 0.15) ripple((Math.random() - .5) * 30, 15 + Math.random() * 80, 0.35);
   }
 
   /* ---------- drawing ---------- */
@@ -316,14 +316,19 @@
     const N = night(), bankY = P(0, 0, FAR)[1], wh = H - bankY;
     still(t, bankY, wh, N);
     g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(layer, 0, 0); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // ripples: soft rings with a lit crest and a shaded trough either side, like real water (26 Nov: were plain lines)
+    const lit = N ? "255,214,200" : "255,255,255", sh = N ? "12,6,14" : "8,34,60";
     for (const r of rip) {
-      const [sx, sy, s] = P(r.x, 0, r.z), e = 1 - Math.pow(1 - r.t, 2.4), rad = (0.25 + e * 2.6 * r.s) * s;
-      for (let k = 0; k < 3; k++) {
-        const rr = rad * (1 - k * 0.28); if (rr < 1) continue;
-        g.beginPath(); g.ellipse(sx, sy, rr, rr * 0.22, 0, 0, Math.PI * 2);
-        g.strokeStyle = `rgba(255,255,255,${(1 - r.t) * (N ? 0.4 : 0.6) * (1 - k * 0.3)})`;
-        g.lineWidth = Math.max(0.6, s * 0.015); g.stroke();
+      const [sx, sy, s] = P(r.x, 0, r.z), e = 1 - Math.pow(1 - r.t, 2.4), rad = (0.25 + e * 2.6 * r.s) * s, a = (1 - r.t) * (N ? 0.7 : 0.85);
+      if (rad < 1.5) continue;
+      g.save(); g.translate(sx, sy); g.scale(1, 0.24);
+      for (const [k, m] of [[1, 1], [0.62, 0.55]]) {   // the outer ring and a fainter inner one behind it
+        const rr = rad * k, gr = g.createRadialGradient(0, 0, rr * 0.7, 0, 0, rr * 1.08);
+        gr.addColorStop(0, `rgba(${sh},0)`); gr.addColorStop(0.42, `rgba(${sh},${0.22 * a * m})`); gr.addColorStop(0.68, `rgba(${lit},${0.55 * a * m})`);
+        gr.addColorStop(0.8, `rgba(${sh},${0.16 * a * m})`); gr.addColorStop(1, `rgba(${sh},0)`);
+        g.fillStyle = gr; g.beginPath(); g.arc(0, 0, rr * 1.08, 0, Math.PI * 2); g.fill();
       }
+      g.restore();
     }
     // buoys far to near, so nearer ones overlap
     // only this round's buoys are on the water (after the last round, its buoys stay, faded)

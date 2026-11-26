@@ -53,11 +53,11 @@ void main(){
   const CELL = 5;                                   // CSS px per simulation cell
   let SW = 0, SH = 0, cur, prev, bytes, rowShift = 0;
   function size() {
-    const sc = innerWidth < 760 ? 1 : Math.min(devicePixelRatio || 1, 1.25);   // phones: soft background, 1x is plenty and keeps scrolling smooth
+    const sc = Math.min(devicePixelRatio || 1, 1.25);   // 1.25 everywhere: phones at 1x looked soft, more costs frames
     c.width = Math.round(innerWidth * sc); c.height = Math.round(innerHeight * sc);
     gl.viewport(0, 0, c.width, c.height); gl.uniform2f(uRes, c.width, c.height);
     SW = Math.ceil(innerWidth / CELL) + 2; SH = Math.ceil(innerHeight / CELL) + 2;
-    cur = new Float32Array(SW * SH); prev = new Float32Array(SW * SH); bytes = new Uint8Array(SW * SH);
+    cur = new Float32Array(SW * SH); prev = new Float32Array(SW * SH); bytes = new Uint8Array(SW * SH).fill(128);   // edge cells stay flat water
     gl.uniform2f(uCell, 1 / SW, 1 / SH);
   }
   size(); addEventListener("resize", size);
@@ -107,6 +107,7 @@ void main(){
   }, { passive: true });
 
   const night = () => (root.dataset.theme === "night" ? 1 : 0);
+  addEventListener("themechange", () => { nightMix = night(); gl.uniform1f(uNight, nightMix); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); });   // snap, so the theme bubble reveals the new water at once
   let nightMix = night(), last = 0, idle = 0;
   function frame(now) {
     const dt = Math.min(0.05, last ? (now - last) / 1000 : 0.016); last = now;
@@ -115,7 +116,15 @@ void main(){
       if (wakeV > 0.02) { drop(px + Math.sin(now / 220) * 6, py, 2.6, wakeV * 0.9); wakeV *= Math.pow(0.04, dt); }
       idle += dt; if (idle > 2.8) { idle = 0; drop(Math.random() * innerWidth, Math.random() * innerHeight, 2.2, 0.5); }   // a drop now and then so it's never dead still
       stepSim(); stepSim();
-      for (let k = 0; k < bytes.length; k++) { const v = 128 + cur[k] * 22; bytes[k] = v < 0 ? 0 : v > 255 ? 255 : v; }
+      // 26 Nov (user saw large pixel "cubes" over ripples): the grid wave leaves a cell-sized checkerboard after strong drops, and
+      // hard clipping at 0/255 made flat-topped blocks. Upload a 3x3-smoothed height with a soft limit instead.
+      for (let j = 1; j < SH - 1; j++) {
+        const o = j * SW;
+        for (let i = 1; i < SW - 1; i++) {
+          const k = o + i, h = (cur[k] * 4 + (cur[k - 1] + cur[k + 1] + cur[k - SW] + cur[k + SW]) * 2 + cur[k - SW - 1] + cur[k - SW + 1] + cur[k + SW - 1] + cur[k + SW + 1]) * 0.0106;
+          bytes[k] = 128 + 127 * h / (1 + Math.abs(h));
+        }
+      }
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, SW, SH, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, bytes);
       nightMix += (night() - nightMix) * Math.min(1, dt * 3);
       gl.uniform1f(uT, now / 1000); gl.uniform1f(uNight, nightMix); gl.uniform1f(uFlow, flow);

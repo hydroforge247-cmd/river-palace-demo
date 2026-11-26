@@ -59,7 +59,7 @@
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, im);
       for (const [p, val] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, p, val);
       gl.uniform1i(U(name), unit); sizes[name] = [im.naturalWidth, im.naturalHeight];
-      if (++ready === N_TEX) { gl.uniform2f(U("sD"), ...sizes.iD); gl.uniform2f(U("sN"), ...sizes.iN); resize(); frame(performance.now()); cv.classList.add("on"); }
+      if (++ready === N_TEX) { gl.uniform2f(U("sD"), ...sizes.iD); gl.uniform2f(U("sN"), ...sizes.iN); resize(); frame(performance.now()); cv.classList.add("on"); window.heroReady = true; dispatchEvent(new Event("heroready")); }
     };
     im.src = src;
   });
