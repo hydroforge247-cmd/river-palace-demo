@@ -36,9 +36,9 @@
     W = c.clientWidth; H = c.clientHeight;   // phones get dpr 1.5: sharp enough, half the pixels of 2+
     c.width = W * dpr; c.height = H * dpr; main.setTransform(dpr, 0, 0, dpr, 0, 0); stillT = -1;
     HY = H * (W < H ? 0.34 : 0.4); F = (H * 0.97 - HY) * D0 / CAM_H;
-    // the grab zone sits around the stone, bottom centre
-    const gw = Math.min(260, W * 0.56), gh = Math.min(H * 0.4, 260);
-    Object.assign(grab.style, { width: gw + "px", height: gh + "px", left: (W - gw) / 2 + "px", top: H - gh + "px" });
+    // the grab zone is just the stone and a finger-width round it; everywhere else on the game scrolls the page (user, 26 Nov)
+    const [gx, gy] = P(0, 0.35, 0.6), gs = Math.min(140, W * 0.36), gt = Math.min(H - gs, gy - gs / 2);
+    Object.assign(grab.style, { width: gs + "px", height: gs + "px", left: gx - gs / 2 + "px", top: gt + "px", borderRadius: "50%" });
   }
   new ResizeObserver(size).observe(c);
 
