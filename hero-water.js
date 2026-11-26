@@ -12,7 +12,7 @@
 
   const vs = `attribute vec2 p; varying vec2 v; void main(){ v = p * .5 + .5; v.y = 1. - v.y; gl_Position = vec4(p, 0., 1.); }`;
   const fs = `precision mediump float;
-  varying vec2 v; uniform sampler2D iD, iN, mD, mN, tD, tN; uniform vec2 cs, sD, sN; uniform float t, night;
+  varying vec2 v; uniform sampler2D iD, iN, mD, mN, tD, tN; uniform vec2 cs, sD, sN; uniform float t, night, amp;
   vec2 cover(vec2 img, vec2 pos) { float s = max(cs.x / img.x, cs.y / img.y); vec2 vis = cs / s; return ((img - vis) * pos + v * vis) / img; }
   vec3 scene(sampler2D im, sampler2D mk, sampler2D tk, vec2 uv, float day) {
     float m = texture2D(mk, uv).r, tr = texture2D(tk, uv).r;
@@ -21,11 +21,11 @@
     float w = sin(uv.y * k - t * 1.3 + sin(uv.x * 23. + t * .4) * 1.6) * .6 + sin(uv.y * k * .63 + uv.x * 31. - t * .9) * .4;
     // by day a second, crossing chop breaks up the bands, like wind on open water in sun
     float w2 = sin((uv.y + uv.x * .55) * k * .8 + t * 1.1) * .5 + sin((uv.y - uv.x * .4) * k * 1.3 - t * 1.7) * .5;
-    vec2 d = (vec2(w * .0016, w * .0011) * (1. + day * .5) + vec2(w2 * .0011, w2 * .0013) * day) * m * (.35 + uv.y);
+    vec2 d = (vec2(w * .0016, w * .0011) * (1. + day * .5) + vec2(w2 * .0011, w2 * .0013) * day) * m * (.35 + uv.y) * amp;
     // trees: a slow sway with gentle gusts; the mask is strongest on hanging willow fronds, weakest on trunks
     float gust = .6 + .4 * sin(t * .31) * sin(t * .17 + 1.);
     float sw = sin(t * 1.1 + uv.y * 14. + uv.x * 5.) * .6 + sin(t * 2.3 + uv.y * 37. + uv.x * 11.) * .4;
-    d += vec2(sw * .0024 * gust, sw * .0005) * tr;
+    d += vec2(sw * .0024 * gust, sw * .0005) * tr * amp;
     vec3 c = texture2D(im, uv + d).rgb;
     float glint = pow(max(0., w), 14.) * m;   // light catching the ripple crests
     c += glint * (day > .5 ? vec3(.09, .085, .075) : vec3(.10, .07, .06));
@@ -68,6 +68,7 @@
     const dpr = Math.min(devicePixelRatio || 1, 1.5);
     cv.width = Math.round(cv.clientWidth * dpr); cv.height = Math.round(cv.clientHeight * dpr);
     gl.viewport(0, 0, cv.width, cv.height); gl.uniform2f(U("cs"), cv.width, cv.height);
+    gl.uniform1f(U("amp"), cv.clientWidth < cv.clientHeight ? 1.7 : 1);   // portrait phones show a thin strip of river: more movement so it reads as alive
   }
   new ResizeObserver(() => ready === N_TEX && (resize(), draw(performance.now()))).observe(cv);
   const draw = now => {

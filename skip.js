@@ -4,7 +4,8 @@
 (() => {
   const card = document.getElementById("gameCard"), c = document.getElementById("skip"), grab = document.getElementById("gGrab");
   if (!card || !c || !grab) return;
-  const g = c.getContext("2d"), $ = id => document.getElementById(id);
+  const main = c.getContext("2d"), $ = id => document.getElementById(id);
+  let g = main;
   const big = $("gBig"), bigN = $("gBigN"), bigT = $("gBigT"), hint = $("gHint"), lastEl = $("gLast"), bestEl = $("gBest"), goalEl = $("gGoal");
 
   /* three rounds of buoys, hit in number order; each round pops up in new spots, further out.
@@ -31,8 +32,9 @@
   let W = 0, H = 0, dpr = 1, HY = 0, F = 1;
   const CAM_H = 1.6, D0 = 6, FAR = 120;
   function size() {
-    dpr = Math.min(devicePixelRatio || 1, 2); W = c.clientWidth; H = c.clientHeight;
-    c.width = W * dpr; c.height = H * dpr; g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    dpr = Math.min(devicePixelRatio || 1, c.clientWidth < 760 ? 1.5 : 2);
+    W = c.clientWidth; H = c.clientHeight;   // phones get dpr 1.5: sharp enough, half the pixels of 2+
+    c.width = W * dpr; c.height = H * dpr; main.setTransform(dpr, 0, 0, dpr, 0, 0); stillT = -1;
     HY = H * (W < H ? 0.34 : 0.4); F = (H * 0.97 - HY) * D0 / CAM_H;
     // the grab zone sits around the stone, bottom centre
     const gw = Math.min(260, W * 0.56), gh = Math.min(H * 0.4, 260);
@@ -269,8 +271,16 @@
     g.restore();
   }
 
-  function draw(t) {
-    const N = night(), bankY = P(0, 0, FAR)[1], wh = H - bankY;
+  /* photo, water and reflection change slowly, so they are painted into a layer at 30 fps and copied each frame (phones were dropping to ~30 fps) */
+  const layer = document.createElement("canvas"); let stillT = -1;
+  function still(t, bankY, wh, N) {
+    if (stillT >= 0 && t - stillT < 1 / 30 && t >= stillT) return;
+    stillT = t;
+    if (layer.width !== c.width || layer.height !== c.height) { layer.width = c.width; layer.height = c.height; }
+    g = layer.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    try { paintStill(t, bankY, wh, N); } finally { g = main; }
+  }
+  function paintStill(t, bankY, wh, N) {
     backdrop(bankY, N);
     // water body: the river's own colour, deeper towards you
     const wg = g.createLinearGradient(0, bankY, 0, H);
@@ -279,10 +289,11 @@
     // mirror image of the real bank and sky, broken up by the wind; strongest near the horizon like real water
     const rc = mirror(bankY, wh, N);
     if (rc) {   // one device-pixel line at a time, shifted by smooth waves: soft like real water, no stair-steps
-      for (let y = 0; y < wh; y++) {
+      const st = W < 760 ? 2 : 1;   // phones: 2 px bands, still smooth at this size
+      for (let y = 0; y < wh; y += st) {
         const f = y / wh, wob = Math.sin(t * 1.1 + y * 0.09) * (0.3 + f * 4) + Math.sin(t * 0.6 + y * 0.031) * f * 3;
         g.globalAlpha = (N ? 0.85 : 0.7) * (1 - f * 0.75);
-        g.drawImage(rc, 0, y * dpr, W * dpr, dpr, wob - 2, bankY + y, W + 4, 1);
+        g.drawImage(rc, 0, y * dpr, W * dpr, dpr * st, wob - 2, bankY + y, W + 4, st);
       }
       g.globalAlpha = 1;
     }
@@ -298,6 +309,13 @@
       g.fillStyle = N ? `rgba(20,10,18,${0.1 * a})` : `rgba(10,40,70,${0.12 * a})`; g.fillRect(x - len / 2, y + hgt, len, hgt);
       g.fillStyle = N ? `rgba(255,205,190,${0.1 * a})` : `rgba(235,245,255,${0.18 * a})`; g.fillRect(x - len / 2, y, len, hgt);
     }
+  }
+
+  function draw(t) {
+    if (!c.width) return;   // not sized yet
+    const N = night(), bankY = P(0, 0, FAR)[1], wh = H - bankY;
+    still(t, bankY, wh, N);
+    g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(layer, 0, 0); g.setTransform(dpr, 0, 0, dpr, 0, 0);
     for (const r of rip) {
       const [sx, sy, s] = P(r.x, 0, r.z), e = 1 - Math.pow(1 - r.t, 2.4), rad = (0.25 + e * 2.6 * r.s) * s;
       for (let k = 0; k < 3; k++) {
@@ -332,12 +350,12 @@
     }
   }
 
-  let vis = false, last = 0;
-  new IntersectionObserver(es => { vis = es[0].isIntersecting; if (vis) { loadBank(); last = 0; requestAnimationFrame(loop); } }, { rootMargin: "300px" }).observe(card);
+  let vis = false, last = 0, raf = 0;   // raf guard: quick in/out scrolling used to start a second loop
+  new IntersectionObserver(es => { vis = es[0].isIntersecting; if (vis && !raf) { loadBank(); last = 0; raf = requestAnimationFrame(loop); } }, { rootMargin: "300px" }).observe(card);
   function loop(now) {
-    if (!vis) return;
+    raf = 0; if (!vis) return;
     const dt = Math.min(0.04, last ? (now - last) / 1000 : 0.016); last = now;
     step(dt); draw(now / 1000);
-    requestAnimationFrame(loop);
+    raf = requestAnimationFrame(loop);
   }
 })();

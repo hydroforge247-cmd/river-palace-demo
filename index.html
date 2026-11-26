@@ -125,6 +125,18 @@ html.on-water body{background:transparent}
 [data-theme=night] .mode .stars{opacity:1}
 @media (max-width:860px){.links a:not(.btn){display:none}.links .lg{display:none}.burger{display:grid}.links{gap:8px}.brand b{font-size:24px}.brand b i{font-size:13px}.emblem{width:44px;height:44px}.emblem img{width:38px;height:38px}}
 @media (max-width:380px){.brand span{display:none}}
+/* phones: header = logo left, day/night + sections menu right; Book lives in the quick bar at the bottom */
+@media (max-width:860px){.links>.btn{display:none}.links{gap:10px}.mode{width:58px;height:32px}.mode .knob{width:24px;height:24px}[data-theme=night] .mode .knob{transform:translateX(26px)}.burger{width:44px;height:44px}}
+.qbar{display:none}
+@media (max-width:860px){
+  .qbar{display:flex;position:fixed;left:12px;right:12px;bottom:calc(10px + env(safe-area-inset-bottom));z-index:55;gap:2px;padding:6px;border-radius:24px;background:var(--glass);backdrop-filter:blur(14px) saturate(1.3);-webkit-backdrop-filter:blur(14px) saturate(1.3);box-shadow:0 0 0 1px var(--line),0 18px 40px -18px rgba(0,0,0,.5);transform:translateY(140%);transition:transform .45s var(--ease)}
+  .qbar.on{transform:none}
+  .qbar a,.qbar button{flex:1;display:grid;justify-items:center;gap:2px;padding:7px 2px 6px;border:0;border-radius:18px;background:none;color:var(--ink);font:500 11.5px/1.1 var(--f-body);text-decoration:none;min-height:48px;transition:background .3s,color .3s}
+  .qbar svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  .qbar a.here{background:var(--bg-2)}
+  .qbar .bk{background:var(--red);color:#fff;font-weight:600}
+  footer{padding-bottom:calc(96px + env(safe-area-inset-bottom))}
+}
 .menu-grid>*{min-width:0}
 
 /* theme switch animation */
@@ -409,7 +421,7 @@ dialog h3{font-size:32px}
     <div class="wrap">
       <div class="head rv">
         <div><p class="hand">While you wait for your food</p><h2>Skip a stone across the Vaal.</h2></div>
-        <p class="lead">Five buoys bob on the river, from close by to way out. Grab the stone, flick it low and fast, and hit them in order before your order arrives.</p>
+        <p class="lead">Eight buoys bob on the river over three rounds, from close by to way out. Grab the stone, flick it low and fast, and hit them in order before your order arrives.</p>
       </div>
       <div class="game-card rv" id="gameCard">
         <canvas id="skip" aria-label="Stone skipping game: grab the stone and flick it towards the buoys"></canvas>
@@ -499,6 +511,14 @@ dialog h3{font-size:32px}
   </div>
 </footer>
 
+<nav class="qbar" id="qbar" aria-label="Quick links">
+  <a href="#menu"><svg viewBox="0 0 24 24"><path d="M7 3v8m-2-8v5a2 2 0 0 0 4 0V3M7 11v10M16 3c-2 1.5-2 6 0 8v10"/></svg>Menu</a>
+  <a href="#bar"><svg viewBox="0 0 24 24"><path d="M5 4h14l-7 8zM12 12v8M8 20h8"/></svg>Bar</a>
+  <a href="#skipgame"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="15" rx="8" ry="3"/><path d="M4 10c3-2 13-2 16 0"/></svg>Game</a>
+  <a href="#visit"><svg viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Visit</a>
+  <button class="bk" data-book><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4m6-4v4"/></svg>Book</button>
+</nav>
+
 <dialog id="book">
   <button class="x" aria-label="Close" onclick="this.closest('dialog').close()">×</button>
   <form id="bookForm" method="dialog">
@@ -530,9 +550,13 @@ const nav = $("#nav"), sheet = $("#sheet"), burger = $("#burger");
 const toggleSheet = open => { sheet.classList.toggle("open", open); burger.setAttribute("aria-expanded", open); };
 burger.onclick = () => toggleSheet(!sheet.classList.contains("open"));
 sheet.querySelectorAll("a").forEach(a => (a.onclick = () => toggleSheet(false)));
-const heroPh = document.querySelectorAll(".hero .ph");
+const heroPh = document.querySelectorAll(".hero .ph"), qbar = $("#qbar");
+// quick bar: mark the section you're in
+const qLinks = [...qbar.querySelectorAll("a")];
+{ const io = new IntersectionObserver(es => es.forEach(e => e.isIntersecting && qLinks.forEach(a => a.classList.toggle("here", a.hash === "#" + e.target.id))), { rootMargin: "-45% 0px -50% 0px" }); qLinks.forEach(a => { const t = document.querySelector(a.hash); if (t) io.observe(t); }); }
 const onScroll = () => {
   nav.classList.toggle("solid", scrollY > innerHeight * .55);
+  qbar.classList.toggle("on", scrollY > innerHeight * .7);   // after the hero, so it never covers the hero's own buttons
   if (scrollY < innerHeight * 1.2 && !calm.matches) heroPh.forEach(p => (p.style.translate = `0 ${scrollY * .32}px`));
 };
 addEventListener("scroll", onScroll, { passive: true }); onScroll();

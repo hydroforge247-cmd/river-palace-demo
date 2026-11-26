@@ -53,7 +53,7 @@ void main(){
   const CELL = 5;                                   // CSS px per simulation cell
   let SW = 0, SH = 0, cur, prev, bytes, rowShift = 0;
   function size() {
-    const sc = Math.min(devicePixelRatio || 1, 1.25);
+    const sc = innerWidth < 760 ? 1 : Math.min(devicePixelRatio || 1, 1.25);   // phones: soft background, 1x is plenty and keeps scrolling smooth
     c.width = Math.round(innerWidth * sc); c.height = Math.round(innerHeight * sc);
     gl.viewport(0, 0, c.width, c.height); gl.uniform2f(uRes, c.width, c.height);
     SW = Math.ceil(innerWidth / CELL) + 2; SH = Math.ceil(innerHeight / CELL) + 2;
